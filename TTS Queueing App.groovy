@@ -1,6 +1,23 @@
 /*
+TTS Queueing Application, Version 1
 
+	Copyright 2019 Dave Gutheinz
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this  file except in compliance with the
+License. You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0.
+Unless required by applicable law or agreed to in writing,software distributed under the License is distributed on an 
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific 
+language governing permissions and limitations under the License.
+
+Description:  This application installs a virtual speaker that can be used as the TTS target in speech synthesis rules.
+It has been tested against the Samsaung Multiroom Audio devices by Dave Gutheinz.  It should work with all speakers
+having the Speech Synthesis capability (and audio notification).  However, because the recovery from a audio notification
+is specific to the speaker driver, it is not guaranteed to work with other devices.
+
+===== History =====
+03.04.19	Initial release of beta version of TTS Queing Application
 */
+	def appVersion() { return "0.5.01" }
 //	def debugLog() { return false }
 	def debugLog() { return true }
 definition(
@@ -28,102 +45,36 @@ def mainPage() {
 	}
 }
 
-def setLevel(level) {
-	speaker.setLevel(level)
-}
-
-def inputTTS(playItem, volume, method) {
-	logDebug("inputTTS: playItem = ${playItem}, volume = ${volume}, method = ${method}")
-	def TTSQueue = state.TTSQueue
-	TTSQueue << [playItem, volume, method]
-	if (state.playingTTS == false) { processQueue() }
-}
-
-def processQueue() {
-	logDebug("processQueue: TTSQueue = ${state.TTSQueue}")
-	state.playingTTS = true
-	def TTSQueue = state.TTSQueue
-	if (TTSQueue.size() == 0) {
-		state.playingTTS = false
-		return
-	}
-	def nextTTS = TTSQueue[0]
-	TTSQueue.remove(0)
-	playTTS(nextTTS[0], nextTTS[1], nextTTS[2])
-}
+def setLevel(level) { speaker.setLevel(level) }
 
 def playTTS(playItem, volume, method) {
 	logDebug("playTTS: playint: ${playItem}, volume = ${volume}, method = ${method}")
 	def duration
 	switch(method) {
 		case "speak":
-			duration = Math.max(Math.round(playItem.length()/12),2)+3
 			speaker.speak(playItem)
 			break
 		case "playText":
-			duration = Math.max(Math.round(playItem.length()/12),2)+3
 			speaker.playText(playItem, volume)
 			break
 		case "playTextAndRestore":
-			duration = Math.max(Math.round(playItem.length()/12),2)+3
 			speaker.playTextAndRestore(playItem, volume)
 			break
 		case "playTextAndResume":
-			duration = Math.max(Math.round(playItem.length()/12),2)+3
 			speaker.playTextAndResume(playItem, volume)
 			break
 		case "playTrack":
-			try {
-				duration = playItem.duration.toInteger()+3
-			} catch (e) {
-				duration = 20
-			}
 			speaker.playText(playItem, volume)
 			break
 		case "playTrackAndRestore":
-			try {
-				duration = playItem.duration.toInteger()+3
-			} catch (e) {
-				duration = 20
-			}
 			speaker.playTextAndRestore(playItem, volume)
 			break
 		case "playTrackAndResume":
-			try {
-				duration = playItem.duration.toInteger()+3
-			} catch (e) {
-				duration = 20
-			}
 			speaker.playTextAndResume(playItem, volume)
 			break
 		default:
 			return
 	}
-	runIn(duration, processQueue)
-}
-
-def clearQueue() {
-	state.TTSQueue = []
-	state.playingTTS = false
-	logDebug("clearQueue:  TTSQueue = ${state.TTSQueue}")
-}
-
-def setInitialStates() {
-}
-
-def installed() {
-	state.playingTTS = false
-	state.TTSQueue = []
-	initialize()
-}
-
-def updated() { initialize() }
-
-def initialize() {
-	logDebug("initialize: speaker = ${speaker}")
-	unsubscribe()
-	unschedule()
-	if (speaker) { addDevices() }
 }
 
 def addDevices() {
@@ -135,7 +86,7 @@ def addDevices() {
 		return
 	}
 	def hubId = hub.id
-	def virtualDni = "${speaker.getDeviceNetworkId}_TTS"
+	def virtualDni = "${speaker.getDeviceNetworkId()}_TTS"
 	def isChild = getChildDevice(virtualDni)
 	if (!isChild) {
 		logDebug("addDevices: ${virtualDni} / ${hubId} / speaker = ${speaker.label}")
@@ -149,6 +100,27 @@ def addDevices() {
 		)
 			log.info "Installed Button Driver named ${speaker.label} TTS Queue"
 	}
+}
+
+def setInitialStates() { }
+
+def installed() {
+	initialize()
+}
+
+def updated() { initialize() }
+
+def initialize() {
+	logDebug("initialize: speaker = ${speaker}")
+	unsubscribe()
+	unschedule()
+	if (speaker) { addDevices() }
+}
+
+def uninstalled() {
+    	getAllChildDevices().each { 
+        deleteChildDevice(it.deviceNetworkId)
+    }
 }
 
 def logDebug(msg){
