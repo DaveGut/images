@@ -6,11 +6,7 @@ This integration supports multiple speakers audio notification buffering using t
 # Installation:
 a.  Install the device driver and application into Hubitat.
 
-b.  Run the application and select devices you want to buffer audio from.
-    Note:  A new virtual device with the original speaker name plus  
-    " - TTS Queue" will be creates. This is the device you select in 
-    automations that may generate multiple audio notifications in a 
-    short period of time.
+b.  Run the application and select devices you want to buffer audio from. Note:  A new virtual device with the original speaker name plus " - TTS Queue" will be creates. This is the device you select in  automations that may generate multiple audio notifications in a short period of time.
     
 c.  Fine tune the delay time for your device's recovery function.  This is
     necessary since the devices do not recover audio the same way and 
