@@ -15,9 +15,11 @@ having the Speech Synthesis capability (and audio notification).  However, becau
 is specific to the speaker driver, it is not guaranteed to work with other devices.
 
 ===== History =====
-03.04.19	Initial release of beta version of TTS Queing Application
+03.04.19	0.5.01	Initial release of beta version of TTS Queing Application
+03.05.19	0.6.01	Updated to support multiple devices.  Removed all "Audio Notification" commands limiting the app
+					and driver to the speak(text) command.
 */
-	def appVersion() { return "0.5.01" }
+	def appVersion() { return "0.6.01" }
 //	def debugLog() { return false }
 	def debugLog() { return true }
 definition(
@@ -39,42 +41,17 @@ def mainPage() {
 			paragraph "You may only select a single real device in this application"
 		}
 		section {
-//			input "speaker", "capability.audioNotification", title: "On this Audio Notification capableSpeaker player", required: true
-			input "speaker", "capability.speechSynthesis", title: "On this real Speech Synthesis capable Speaker player", required: true
+			input "speaker", "capability.speechSynthesis", title: "On this real Speech Synthesis capable Speaker player", multiple: true, required: false
         }
 	}
 }
 
 def setLevel(level) { speaker.setLevel(level) }
 
-def playTTS(playItem, volume, method) {
-	logDebug("playTTS: playint: ${playItem}, volume = ${volume}, method = ${method}")
-	def duration
-	switch(method) {
-		case "speak":
-			speaker.speak(playItem)
-			break
-		case "playText":
-			speaker.playText(playItem, volume)
-			break
-		case "playTextAndRestore":
-			speaker.playTextAndRestore(playItem, volume)
-			break
-		case "playTextAndResume":
-			speaker.playTextAndResume(playItem, volume)
-			break
-		case "playTrack":
-			speaker.playText(playItem, volume)
-			break
-		case "playTrackAndRestore":
-			speaker.playTextAndRestore(playItem, volume)
-			break
-		case "playTrackAndResume":
-			speaker.playTextAndResume(playItem, volume)
-			break
-		default:
-			return
-	}
+def playTTS(playItem, realSpeaker) {
+	logDebug("playTTS: playint: ${playItem}, volume = ${volume}, method = ${method}, realSpeaker = ${realSpeaker}")
+	def thisSpeaker = speaker.find{ it.toString() == realSpeaker }
+	thisSpeaker.speak(playItem)
 }
 
 def addDevices() {
@@ -86,19 +63,27 @@ def addDevices() {
 		return
 	}
 	def hubId = hub.id
-	def virtualDni = "${speaker.getDeviceNetworkId()}_TTS"
-	def isChild = getChildDevice(virtualDni)
-	if (!isChild) {
-		logDebug("addDevices: ${virtualDni} / ${hubId} / speaker = ${speaker.label}")
-		addChildDevice(
-			"davegut",
-			"Virtual TTS Speaker",
-			virtualDni,
-			hubId, [
-				"label" : "${speaker.label} TTS Queue",
-				"name" : "Virtual TTS Speaker"]
-		)
-			log.info "Installed Button Driver named ${speaker.label} TTS Queue"
+	speaker.each { thisSpeaker ->
+		def virtualDni = "${thisSpeaker.getDeviceNetworkId()}_TTS"
+		def label = "${thisSpeaker.label} TTS Queue"
+		def child = getChildDevice(virtualDni)
+		if (!child) {
+			logDebug("addDevices: Adding ${virtualDni} / ${hubId} / speaker = ${thisSpeaker.label}")
+			addChildDevice(
+				"davegut",
+				"Virtual TTS Speaker",
+				virtualDni,
+				hubId, [
+					"label" : label,
+					"name" : "Virtual TTS Speaker",
+					"data": ["realSpeaker": thisSpeaker]
+				]
+			)
+				log.info "Installed Virtual Speaker named ${label}"
+		} else {
+			logDebug("addDevices: Updating ${label}")
+			child.updateDataValue("realSpeaker", thisSpeaker.label)
+		}
 	}
 }
 
@@ -121,6 +106,15 @@ def uninstalled() {
     	getAllChildDevices().each { 
         deleteChildDevice(it.deviceNetworkId)
     }
+}
+
+def removeChildDevice(alias, deviceNetworkId) {
+	try {
+		deleteChildDevice(it.deviceNetworkId)
+		sendEvent(name: "DeviceDelete", value: "${alias} deleted")
+	} catch (Exception e) {
+		sendEvent(name: "DeviceDelete", value: "Failed to delete ${alias}")
+	}
 }
 
 def logDebug(msg){

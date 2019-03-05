@@ -13,13 +13,13 @@ Description:  This driver is for a virtual device created by the app "TTS Queuei
 framework to capture the external audio notification and then send it to the application for buffering and passing to the
 speaker.
 ===== History =====
-03.09.19	0.5.00	Initial release.  Moved buffer to virtual device handler to simplify application.  Single device
+03.04.19	0.5.00	Initial release.  Moved buffer to virtual device handler to simplify application.  Single device
 					only.
+03.05.19	0.6.01	Updated to support multi-device app.  Also limited commands to setLevel and speak.
 */
 def driverVer() {return "0.5.05" }
 metadata {
 	definition (name: "Virtual TTS Speaker", namespace: "davegut", author: "David Gutheinz") {
-		capability "Audio Notification"
 		capability "Speech Synthesis"
 		command "setLevel", ["NUMBER"]
 		command "clearQueue"
@@ -52,6 +52,16 @@ def updated() {
 	else { stopDebugLogging() }
 }
 
+void uninstalled() {
+	try {
+		def alias = device.label
+		log.info "Removing device ${alias} with DNI = ${device.deviceNetworkId}"
+		parent.removeChildDevice(alias, device.deviceNetworkId)
+	} catch (ex) {
+		log.info "${device.name} ${device.label}: Either the device was manually installed or there was an error."
+	}
+}
+
 def stopDebugLogging() {
 	log.trace "stopTraceLogging: Trace Logging is off."
 	device.updateSetting("debugMode", [type:"bool", value: false])
@@ -65,49 +75,7 @@ def setLevel(level) {
 def speak(text) {
 	logDebug("speak: text = ${text}")
 	def duration = textToSpeech(text).duration + msgDelay.toInteger()
-	queueTTS(text, null, "speak", duration)
-}
-
-def playText(text, volume=null) {
-	logDebug("playText: text = ${text}, volume = ${volume}")
-	def duration = textToSpeech(text).duration + msgDelay.toInteger()
-	queueTTS(text, volume, "playText", duration)
-}
-
-def playTextAndRestore(text, volume=null) {
-	logDebug("playTextAndRestore: text = ${text}, volume = ${volume}")
-	def duration = textToSpeech(text).duration + msgDelay.toInteger()
-	queueTTS(text, volume, "playTextAndRestore", duration)
-}
-
-def playTextAndResume(text, volume=null) {
-	logDebug("playText: text = ${text}, volume = ${volume}")
-	def duration = textToSpeech(text).duration + msgDelay.toInteger()
-	queueTTS(text, volume=null, "playTextAndResume", duration)
-}
-
-def playTrack(trackUri, volume=null) {
-	logDebug("playTrack: text = ${text}, volume = ${volume}")
-	def duration
-	try { duration = playItem.duration.toInteger() + msgDelay.toInteger() }
-	catch (e) { duration = 15 + msgDelay.toInteger }
-	queueTTS(track, volume, "playTrack", duration)
-}
-
-def playTrackAndRestore(track, volume=null) {
-	logDebug("playTrackAndRestore: text = ${text}, volume = ${volume}")
-	def duration
-	try { duration = playItem.duration.toInteger() + msgDelay.toInteger() }
-	catch (e) { duration = 15 + msgDelay.toInteger }
-	queueTTS(track, volume, "playTrack", duration)
-}
-
-def playTrackAndResume(track, volume=null) {
-	logDebug("playTrackAndResume: text = ${text}, volume = ${volume}")
-	def duration
-	try { duration = playItem.duration.toInteger() + msgDelay.toInteger() }
-	catch (e) { duration = 15 + msgDelay.toInteger }
-	queueTTS(track, volume, "playTrack", duration)
+	queueTTS(text.toString(), duration)
 }
 
 def clearQueue() {
@@ -118,12 +86,12 @@ def clearQueue() {
 
 def testQueue() {
 	speak("${testText} try one")
-	pauseExecution(300)
-	playText("${testText} try two", "44")
-	pauseExecution(300)
-	playTextAndRestore("${testText} try three", "33")
-	pauseExecution(300)
-	playTextAndResume("${testText} try four.  All done.", "44")
+	pauseExecution(1000)
+	speak("${testText} try two")
+	pauseExecution(200)
+	speak("${testText} try three")
+	pauseExecution(200)
+	speak("${testText} try four.  All done.")
 }
 
 def logDebug(msg) {
@@ -132,10 +100,10 @@ def logDebug(msg) {
 	}
 }
 
-def queueTTS(playItem, volume, method, duration) {
-	logDebug("queueTTS: playItem = ${playItem}, volume = ${volume}, method = ${method}")
+def queueTTS(playItem, duration) {
+	logDebug("queueTTS: playItem = ${playItem}, duration = ${duration}")
 	def TTSQueue = state.TTSQueue
-	TTSQueue << [playItem, volume, method, duration]
+	TTSQueue << [playItem, duration]
 	if (state.playingTTS == false) { processQueue() }
 }
 
@@ -147,10 +115,11 @@ def processQueue() {
 		state.playingTTS = false
 		return
 	}
+	def realSpeaker = getDataValue("realSpeaker")
 	def nextTTS = TTSQueue[0]
 	TTSQueue.remove(0)
-	parent.playTTS(nextTTS[0], nextTTS[1], nextTTS[2])
-	runIn(nextTTS[3], processQueue)
+	parent.playTTS(nextTTS[0], realSpeaker)
+	runIn(nextTTS[1], processQueue)
 }
 
 //	End-of-File
