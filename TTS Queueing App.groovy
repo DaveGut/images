@@ -76,7 +76,7 @@ def addDevices() {
 				hubId, [
 					"label" : label,
 					"name" : "Virtual TTS Speaker",
-					"data": ["realSpeaker": thisSpeaker]
+					"data": ["realSpeaker": thisSpeaker.label]
 				]
 			)
 				log.info "Installed Virtual Speaker named ${label}"
