@@ -65,7 +65,6 @@ def speak(text) {
 	def TTSQueue = state.TTSQueue
 	TTSQueue << [text, duration]
 	if (state.playingTTS == false) { runInMillis(100, processQueue) }
-	else {runIn(20, processQueue) }
 }
 
 def processQueue() {
