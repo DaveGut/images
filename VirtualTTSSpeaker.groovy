@@ -1,14 +1,11 @@
 /*
 Virtural TTS Speaker Device Driver, Version 1
-
 	Copyright 2019 Dave Gutheinz
-
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this  file except in compliance with the
 License. You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0.
 Unless required by applicable law or agreed to in writing,software distributed under the License is distributed on an 
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific 
 language governing permissions and limitations under the License.
-
 Description:  This driver is for a virtual device created by the app "TTS Queueing".  The virtual device provides the
 framework to capture the external audio notification and then send it to the application for buffering and passing to the
 speaker.
@@ -17,6 +14,7 @@ speaker.
 					only.
 03.05.19	0.6.01	Updated to support multi-device app.  Also limited commands to setLevel and speak.
 06.15.19	1.0.01	First production release
+07.17.19	1.0.02	Minor error correction causing failure.
 */
 
 def driverVer() {return "1.0.01" }
@@ -65,7 +63,7 @@ def speak(text) {
 	log.info "TEXT = ${text}"
 	def duration = textToSpeech(text).duration + 3
 	def TTSQueue = state.TTSQueue
-	TTSQueue << [playItem, duration]
+	TTSQueue << [text, duration]
 	if (state.playingTTS == false) { runInMillis(100, processQueue) }
 	else {runIn(20, processQueue) }
 }
